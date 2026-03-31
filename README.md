@@ -243,3 +243,7 @@ The result is the same for all users, ensuring consistency.
 1. Open the project in IntelliJ
 2. Run `Main.java`
 3. Check console output
+
+# Format
+
+On intelliJ click ctrl + alt + L

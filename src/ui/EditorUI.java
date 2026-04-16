@@ -29,17 +29,19 @@ public class EditorUI extends JFrame {
     // Phase 1 integration
     private Document document;
     private final String blockId = "block-1";
-    private final int localUserId = 1;
+    private int localUserId ;
     private int localClock = 0;
 
     // Keeps inserted character IDs in order for simple delete-from-end
-    private List<String> insertedCharIds;
+    private List<String> visibleCharIds;
 
     /// Integration: Network client and connection state
     private WebSocketClient wsClient;
     private boolean isConnected = false;
 
     public EditorUI() {
+        localUserId = (int) (Math.random()*100000);
+
         setTitle("Collaborative Text Editor");
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -55,7 +57,7 @@ public class EditorUI extends JFrame {
 
     private void initPhase1Core() {
         document = new Document();
-        insertedCharIds = new ArrayList<>();
+        visibleCharIds = new ArrayList<>();
 
         // Create one default block
         document.apply(new InsertBlockOperation(blockId, null, localUserId, localClock));
@@ -216,14 +218,14 @@ public class EditorUI extends JFrame {
         for (int i = 0; i < text.length(); i++) {
             char value = text.charAt(i);
 
-            String parentId = insertedCharIds.isEmpty() ? null : insertedCharIds.get(insertedCharIds.size() - 1);
+            String parentId = visibleCharIds.isEmpty() ? null : visibleCharIds.get(visibleCharIds.size() - 1);
 
             InsertCharacterOperation op = new InsertCharacterOperation(localUserId, localClock, value, parentId,
                     blockId);
 
             document.apply(op);
 
-            insertedCharIds.add(op.getCharId());
+            visibleCharIds.add(op.getCharId());
             localClock++;
 
             /// Integration: REPLACED - Now sends real message instead of simulateSend
@@ -239,11 +241,11 @@ public class EditorUI extends JFrame {
 
     private void handleSimpleDelete(int length) {
         for (int i = 0; i < length; i++) {
-            if (insertedCharIds.isEmpty()) {
+            if (visibleCharIds.isEmpty()) {
                 break;
             }
 
-            String lastCharId = insertedCharIds.remove(insertedCharIds.size() - 1);
+            String lastCharId = visibleCharIds.remove(visibleCharIds.size() - 1);
 
             String[] parts = lastCharId.split("-");
             int userId = Integer.parseInt(parts[0]);
@@ -315,9 +317,20 @@ public class EditorUI extends JFrame {
     /// Integration: ADDED - Handle incoming remote messages
     private void handleRemoteMessage(String message) {
         System.out.println(">>> Remote message: " + message);
+
         Object operation = MessageHandler.messageToOperation(message);
+
         if (operation != null) {
             document.applyRemote(operation);
+
+            if (operation instanceof InsertCharacterOperation) {
+                InsertCharacterOperation op = (InsertCharacterOperation) operation;
+                visibleCharIds.add(op.getCharId());
+            } else if (operation instanceof DeleteCharacterOperation) {
+                DeleteCharacterOperation op = (DeleteCharacterOperation) operation;
+                visibleCharIds.remove(op.getCharId());
+            }
+
             refreshTextFromDocument();
         }
     }

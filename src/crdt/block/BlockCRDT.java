@@ -9,8 +9,8 @@ import util.OrderingUtil;
 
 public class BlockCRDT {
 
-    public Map<String, Block> nodeMap;
-    public List<Block> roots;
+    private final Map<String, Block> nodeMap;
+    private final List<Block> roots;
 
     public BlockCRDT() {
         nodeMap = new HashMap<>();
@@ -18,15 +18,22 @@ public class BlockCRDT {
     }
 
     public void insert(int userId, int clock, String blockId, String parentBlockId) {
+        // Ignore duplicate insert
+        if (nodeMap.containsKey(blockId)) {
+            return;
+        }
+
         Block parent = null;
 
         if (parentBlockId != null) {
             parent = nodeMap.get(parentBlockId);
+
             if (parent == null) {
                 System.out.println("Insert failed: parent block " + parentBlockId + " not found.");
                 return;
             }
         }
+
         Block newBlock = new Block(blockId, userId, clock, parent);
 
         if (parent == null) {
@@ -42,16 +49,27 @@ public class BlockCRDT {
 
     public void delete(String blockId) {
         Block block = nodeMap.get(blockId);
+
         if (block != null) {
             block.setDeleted(true);
         }
     }
 
+    public Block getBlockById(String blockId) {
+        return nodeMap.get(blockId);
+    }
+
+    public boolean containsBlock(String blockId) {
+        return nodeMap.containsKey(blockId);
+    }
+
     public List<Block> getBlocks() {
         List<Block> result = new ArrayList<>();
+
         for (Block root : roots) {
             buildList(root, result);
         }
+
         return result;
     }
 
@@ -59,6 +77,7 @@ public class BlockCRDT {
         if (!block.deleted) {
             result.add(block);
         }
+
         for (Block child : block.children) {
             buildList(child, result);
         }
@@ -67,11 +86,4 @@ public class BlockCRDT {
     private void sortBlocks(List<Block> blocks) {
         blocks.sort((a, b) -> OrderingUtil.compare(a.clock, a.userId, b.clock, b.userId));
     }
-    // private void sortBlocks(List<Block> blocks) {
-    // blocks.sort((a, b) -> {
-    // if (a.clock != b.clock) return Integer.compare(b.clock, a.clock);
-    // return Integer.compare(a.userId, b.userId);
-    // });
-    // }
-
 }
